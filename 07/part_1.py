@@ -80,3 +80,117 @@
 # Try every combination of phase settings on the amplifiers. What is the highest
 # signal that can be sent to the thrusters?
 
+from itertools import permutations
+
+def intcode(raw_code, phase_amp):
+    ip = 0
+    output = []
+    code = raw_code.copy()
+    i = 0
+    while ip < len(code):
+        opcode = code[ip] % 100
+        modes = int(str(code[ip] // 100), 2)
+        param1 = 0
+        param2 = 0
+        param3 = 0
+        if modes & 1:
+            try:
+                param1 = code[ip+1]
+            except:
+                param1 = 0
+        else:
+            try:
+                param1 = code[code[ip+1]]
+            except:
+                param1 = 0
+        if modes & 2:
+            try:
+                param2 = code[ip+2]
+            except:
+                param2 = 0
+        else:
+            try:
+                param2 = code[code[ip+2]]
+            except:
+                param2 = 0
+        try:
+            param3 = code[ip+3]
+        except:
+            param3 = 0
+
+        # print("Param 1 :", param1)
+        # print("Param 2 :", param2)
+        # print("Param 3 :", param3)
+
+        if opcode == 1:
+            code[param3] = param1 + param2
+            ip += 4
+        elif opcode == 2:
+            code[param3] = param1 * param2
+            ip += 4
+        elif opcode == 3:
+            data = phase_amp[i]
+            code[code[ip+1]] = data
+            i += 1
+            ip += 2
+        elif opcode == 4:
+            output.append(param1)
+            ip += 2
+        elif opcode == 5:
+            if param1 != 0:
+                ip = param2
+            else:
+                ip += 3
+        elif opcode == 6:
+            if param1 == 0:
+                ip = param2
+            else:
+                ip += 3
+        elif opcode == 7:
+            if param1 < param2:
+                code[param3] = 1
+            else:
+                code[param3] = 0
+            ip += 4
+        elif opcode == 8:
+            if param1 == param2:
+                code[param3] = 1
+            else:
+                code[param3] = 0
+            ip += 4
+        elif opcode == 99:
+            return output[-1]
+
+def amp_array(raw_code, phase):
+    amp = 0
+    for p in phase:
+        amp = intcode(raw_code, [p, amp])
+    return amp
+
+def best_amp_phase(raw_code, perm):
+    best_amp = 0
+    best_phase = 0
+    for phase in list(perm):
+        amp = amp_array(raw_code, phase)
+        if amp > best_amp:
+            best_amp, best_phase = amp, phase
+    return (best_amp, best_phase)
+
+def test():
+    assert amp_array([ 3, 15, 3, 16, 1002, 16, 10, 16,
+                      1, 16, 15, 15, 4, 15, 99, 0, 0 ], [4, 3, 2, 1, 0]) == 43210, "Should be 43210"
+    assert amp_array([ 3, 23, 3, 24, 1002, 24, 10, 24, 1002,
+                      23, -1, 23, 101, 5, 23, 23, 1,
+                      24, 23, 23, 4, 23, 99, 0, 0 ], [0, 1, 2, 3, 4]) == 54321, "Should be 54321"
+    assert amp_array([3, 31, 3, 32, 1002, 32, 10, 32, 1001, 31, -2,
+                      31, 1007, 31, 0, 33, 1002, 33, 7, 33, 1, 33, 31,
+                      31, 1, 32, 31, 31, 4, 31, 99, 0, 0, 0], [1, 0, 4, 3, 2]) == 65210, "Should be 65210"
+
+filename = open("d7input.txt", "r")
+input_data_str = filename.readline()
+input_data = list(map(int, input_data_str.split(",")))
+perm = permutations([0, 1, 2, 3, 4])
+best = best_amp_phase(input_data, perm)
+print("The best Amp-Phase:", best)
+# print(intcode(input_data))
+# test()
